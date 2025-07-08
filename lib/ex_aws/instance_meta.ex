@@ -78,6 +78,36 @@ defmodule ExAws.InstanceMeta do
     end
   end
 
+  def eks_pod_credentials(config) do
+    with full_uri when is_binary(full_uri) <- System.get_env("AWS_CONTAINER_CREDENTIALS_FULL_URI"),
+         token_file when is_binary(token_file) <- System.get_env("AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE"),
+         {:ok, token} <- File.read(token_file) do
+      headers = [{"Authorization", String.trim(token)}]
+
+      case config.http_client.request(:get, full_uri, "", headers, http_opts())
+           |> ExAws.Request.maybe_transform_response() do
+        {:ok, %{status_code: 200, body: body}} ->
+          config.json_codec.decode!(body)
+
+        {:ok, %{status_code: status_code}} ->
+          raise """
+          EKS Pod Credentials Error: HTTP response status code #{inspect(status_code)}
+
+          Failed to retrieve credentials from EKS pod identity webhook.
+          """
+
+        error ->
+          raise """
+          EKS Pod Credentials Error: #{inspect(error)}
+
+          Failed to retrieve credentials from EKS pod identity webhook.
+          """
+      end
+    else
+      _ -> nil
+    end
+  end
+
   def instance_role_credentials(config) do
     ExAws.InstanceMeta.request(
       config,
@@ -88,8 +118,12 @@ defmodule ExAws.InstanceMeta do
 
   def security_credentials(config) do
     result =
-      case task_role_credentials(config) do
-        nil -> instance_role_credentials(config)
+      case eks_pod_credentials(config) do
+        nil ->
+          case task_role_credentials(config) do
+            nil -> instance_role_credentials(config)
+            credentials -> credentials
+          end
         credentials -> credentials
       end
 
