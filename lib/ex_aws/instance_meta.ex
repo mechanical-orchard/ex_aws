@@ -68,12 +68,12 @@ defmodule ExAws.InstanceMeta do
   end
 
   def task_role_credentials(config) do
-    case System.get_env("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI") do
+    case System.get_env("AWS_CONTAINER_CREDENTIALS_FULL_URI") do
       nil ->
         nil
 
       uri ->
-        ExAws.InstanceMeta.request(config, @task_role_root <> uri)
+        ExAws.InstanceMeta.request(config,  uri)
         |> config.json_codec.decode!
     end
   end
