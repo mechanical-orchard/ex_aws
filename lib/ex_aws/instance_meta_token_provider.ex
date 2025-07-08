@@ -106,9 +106,9 @@ defmodule ExAws.InstanceMetaTokenProvider do
   end
 
   defp metadata_token_api_url do
-    case System.get_env("AWS_CONTAINER_CREDENTIALS_FULL_URI") do
+    case System.get_env("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI") do
       nil -> @metadata_token_api_url
-      uri -> uri
+      uri -> @task_role_root <> uri
     end
   end
 
